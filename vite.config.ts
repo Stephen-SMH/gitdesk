@@ -26,7 +26,16 @@ export default defineConfig(() => ({
       : undefined,
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      ignored: ["**/src-tauri/**", "**/src-web/**"],
+    },
+    // Web app development: `npm run web:server` answers /api on its default port.
+    // gitdesk-web only accepts requests addressed to itself, so present them that way.
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:4820",
+        changeOrigin: true,
+        headers: { origin: "http://127.0.0.1:4820" },
+      },
     },
   },
 }));

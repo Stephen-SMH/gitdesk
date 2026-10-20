@@ -1,4 +1,29 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
+
+/** True inside the Tauri window; false when gitdesk-web serves the UI to a browser. */
+export const isDesktop = isTauri();
+
+/**
+ * Run a backend command. The desktop app goes through Tauri; the web app POSTs
+ * the same command and arguments to gitdesk-web (src-web), which answers with
+ * the same JSON, or with the error text and a non-2xx status.
+ */
+async function call<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
+  if (isDesktop) return invoke<T>(cmd, args);
+  let res: Response;
+  try {
+    res = await fetch(`/api/${cmd}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(args),
+    });
+  } catch {
+    throw "Lost connection to gitdesk-web. Is it still running?";
+  }
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw typeof body === "string" ? body : `gitdesk-web: ${res.status} ${res.statusText}`;
+  return body as T;
+}
 
 export type RepoInfo = {
   path: string;
@@ -34,29 +59,43 @@ export type CommitFile = { path: string; kind: ChangeKind };
 
 export type Branches = { current: string; local: string[]; remote: string[] };
 
+/** A folder as the web app's folder picker sees it. */
+export type Folder = {
+  path: string;
+  parent: string | null;
+  repo: boolean;
+  dirs: { name: string; path: string; repo: boolean }[];
+};
+
 export const git = {
-  repoInfo: (repo: string) => invoke<RepoInfo>("repo_info", { repo }),
-  status: (repo: string) => invoke<FileChange[]>("status", { repo }),
+  repoInfo: (repo: string) => call<RepoInfo>("repo_info", { repo }),
+  status: (repo: string) => call<FileChange[]>("status", { repo }),
   diffFile: (repo: string, file: string, untracked: boolean) =>
-    invoke<string>("diff_file", { repo, file, untracked }),
+    call<string>("diff_file", { repo, file, untracked }),
   commit: (repo: string, files: string[], summary: string, description: string) =>
-    invoke<string>("commit", { repo, files, summary, description }),
+    call<string>("commit", { repo, files, summary, description }),
   discard: (repo: string, files: { path: string; untracked: boolean }[]) =>
-    invoke<void>("discard", { repo, files }),
-  log: (repo: string, skip: number, limit: number) => invoke<Commit[]>("log", { repo, skip, limit }),
-  commitFiles: (repo: string, sha: string) => invoke<CommitFile[]>("commit_files", { repo, sha }),
+    call<void>("discard", { repo, files }),
+  log: (repo: string, skip: number, limit: number) => call<Commit[]>("log", { repo, skip, limit }),
+  commitFiles: (repo: string, sha: string) => call<CommitFile[]>("commit_files", { repo, sha }),
   commitDiff: (repo: string, sha: string, file: string) =>
-    invoke<string>("commit_diff", { repo, sha, file }),
-  branches: (repo: string) => invoke<Branches>("branches", { repo }),
+    call<string>("commit_diff", { repo, sha, file }),
+  branches: (repo: string) => call<Branches>("branches", { repo }),
   checkout: (repo: string, branch: string, remote: boolean) =>
-    invoke<void>("checkout", { repo, branch, remote }),
-  createBranch: (repo: string, name: string) => invoke<void>("create_branch", { repo, name }),
-  fetch: (repo: string) => invoke<void>("fetch", { repo }),
-  pull: (repo: string) => invoke<void>("pull", { repo }),
-  push: (repo: string) => invoke<void>("push", { repo }),
-  clone: (url: string, parent: string) => invoke<string>("clone_repo", { url, parent }),
-  init: (path: string) => invoke<void>("init_repo", { path }),
-  launchRepo: () => invoke<string | null>("launch_repo"),
+    call<void>("checkout", { repo, branch, remote }),
+  createBranch: (repo: string, name: string) => call<void>("create_branch", { repo, name }),
+  fetch: (repo: string) => call<void>("fetch", { repo }),
+  pull: (repo: string) => call<void>("pull", { repo }),
+  push: (repo: string) => call<void>("push", { repo }),
+  clone: (url: string, parent: string) => call<string>("clone_repo", { url, parent }),
+  init: (path: string) => call<void>("init_repo", { path }),
+  launchRepo: () => call<string | null>("launch_repo"),
+};
+
+/** Web-only: the browser can't see the file system or open Finder, so gitdesk-web does it. */
+export const web = {
+  listDir: (path: string | null) => call<Folder>("list_dir", { path }),
+  reveal: (path: string) => call<void>("reveal", { path }),
 };
 
 export function errorText(e: unknown): string {

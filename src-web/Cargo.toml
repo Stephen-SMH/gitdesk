@@ -1,0 +1,14 @@
+[package]
+name = "gitdesk-web"
+version = "0.1.0"
+description = "GitDesk in the browser: serves the UI and runs git on this machine"
+authors = ["Soe Moe Htet (Stephen)"]
+edition = "2024"
+license = "MIT"
+
+[dependencies]
+axum = "0.8"
+rust-embed = "8.13.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tokio = { version = "1.54.0", features = ["rt-multi-thread", "macros", "net"] }

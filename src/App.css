@@ -203,4 +203,24 @@ li:hover > .row-act { visibility: visible; }
 .modal label { display: flex; flex-direction: column; gap: 6px; font-weight: 500; }
 .modal .row { display: flex; gap: 6px; }
 .modal .hint { margin: 0; color: var(--fg-2); font-size: 12px; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.modal-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+
+/* web app folder picker */
+.picker { width: min(560px, 92vw); }
+.picker .row input { flex: 1; font-family: var(--mono); font-size: 12px; }
+.picker-list { list-style: none; margin: 0; padding: 4px 0; height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-2); }
+.picker-list li { display: flex; align-items: center; gap: 8px; padding: 5px 12px; cursor: pointer; }
+.picker-list li:hover { background: var(--bg-3); }
+.picker-list li.up { color: var(--fg-2); font-family: var(--mono); }
+.picker-list li.empty { color: var(--fg-2); cursor: default; background: none; }
+.picker-error { color: var(--red) !important; font-family: var(--mono); user-select: text; }
+.picker-note { margin-right: auto !important; color: var(--green) !important; }
+.tag { margin-left: auto; padding: 0 7px; border: 1px solid currentColor; border-radius: 9px; font-size: 11px; color: var(--green); }
+
+/* a browser window can be narrower than the desktop app's minimum width */
+@media (max-width: 900px) {
+  .tb-btn { min-width: 0; flex: 1; }
+  .tb-drop { flex: 1; }
+  .tb-spacer, .tb-links { display: none; }
+  .sidebar { width: 260px; }
+}

@@ -21,7 +21,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: |
+            src-tauri
+            src-web
       - run: npm ci
       - name: Type-check and build UI
         run: npm run build
@@ -31,3 +33,6 @@ jobs:
           git config --global user.name ci
           git config --global user.email ci@example.com
           cargo test
+      - name: Web server tests
+        working-directory: src-web
+        run: cargo test

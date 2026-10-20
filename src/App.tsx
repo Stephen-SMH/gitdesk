@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { open as openDialog, confirm } from "@tauri-apps/plugin-dialog";
-import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   git,
   errorText,
+  isDesktop,
   loadRecent,
   saveRecent,
   type Branches,
@@ -14,6 +13,8 @@ import {
   type RepoInfo,
 } from "./api";
 import { DiffView } from "./DiffView";
+import { FolderPicker } from "./FolderPicker";
+import { confirmAction, openExternal, pickFolderNative, revealFolder } from "./platform";
 import "./App.css";
 
 type Tab = "changes" | "history";
@@ -60,6 +61,11 @@ function splitPath(p: string) {
   return i < 0 ? { dir: "", name: p } : { dir: p.slice(0, i + 1), name: p.slice(i + 1) };
 }
 
+/** Parent folder of an absolute path, with either separator. */
+function parentDir(p: string) {
+  return p.replace(/[\\/][^\\/]*[\\/]?$/, "");
+}
+
 export default function App() {
   const [recent, setRecent] = useState<string[]>(loadRecent);
   const [repoPath, setRepoPath] = useState<string | null>(() => loadRecent()[0] ?? null);
@@ -70,6 +76,7 @@ export default function App() {
   const [busy, setBusy] = useState<Busy>(null);
   const [menu, setMenu] = useState<null | "repo" | "branch">(null);
   const [cloneOpen, setCloneOpen] = useState(false);
+  const [picker, setPicker] = useState<null | { title: string; start: string | null; resolve: (path: string | null) => void }>(null);
 
   // changes tab
   const [changes, setChanges] = useState<FileChange[]>([]);
@@ -135,6 +142,11 @@ export default function App() {
     if (tab === "history") loadHistory(true);
   }, [tab, repoPath, info?.branch]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Name the browser tab after the repository (the desktop window title is fixed).
+  useEffect(() => {
+    document.title = info ? `${info.name} · GitDesk` : "GitDesk";
+  }, [info?.name]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Pick up edits made in other apps when the window regains focus.
   useEffect(() => {
     const onFocus = () => refresh();
@@ -186,7 +198,7 @@ export default function App() {
       } catch (e) {
         const msg = errorText(e);
         if (msg.includes("not a git repository")) {
-          const ok = await confirm(`${path} is not a git repository. Create one here?`, {
+          const ok = await confirmAction(`${path} is not a git repository. Create one here?`, {
             title: "Create repository",
             okLabel: "Create",
           });
@@ -210,9 +222,18 @@ export default function App() {
     }).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /** Native dialog on desktop; in the browser, the FolderPicker rendered below. */
+  const pickFolder = useCallback(
+    (title: string) =>
+      isDesktop
+        ? pickFolderNative(title)
+        : new Promise<string | null>((resolve) => setPicker({ title, start: repoPath && parentDir(repoPath), resolve })),
+    [repoPath],
+  );
+
   const addLocal = async () => {
-    const dir = await openDialog({ directory: true, title: "Choose a repository folder" });
-    if (typeof dir === "string") openRepo(dir);
+    const dir = await pickFolder("Choose a repository folder");
+    if (dir) openRepo(dir);
   };
 
   const removeRecent = (path: string) => {
@@ -256,7 +277,7 @@ export default function App() {
 
   const doDiscard = async (files: FileChange[]) => {
     if (!repoPath || files.length === 0) return;
-    const ok = await confirm(
+    const ok = await confirmAction(
       files.length === 1
         ? `Discard all changes to ${files[0].path}? This cannot be undone.`
         : `Discard changes to ${files.length} files? This cannot be undone.`,
@@ -365,9 +386,9 @@ export default function App() {
       <div className="tb-spacer" />
       {info && (
         <div className="tb-links">
-          <button className="link-btn" onClick={() => revealItemInDir(info.path)}>Show in Finder</button>
+          <button className="link-btn" onClick={() => revealFolder(info.path).catch(fail)}>Show in Finder</button>
           {webUrl(info.remote_url) && (
-            <button className="link-btn" onClick={() => openUrl(webUrl(info.remote_url)!)}>View on web</button>
+            <button className="link-btn" onClick={() => openExternal(webUrl(info.remote_url)!).catch(fail)}>View on web</button>
           )}
         </div>
       )}
@@ -548,6 +569,7 @@ export default function App() {
       {cloneOpen && (
         <CloneDialog
           onClose={() => setCloneOpen(false)}
+          pickFolder={pickFolder}
           busy={busy === "clone"}
           onClone={(url, parent) =>
             run("clone", async () => {
@@ -556,6 +578,17 @@ export default function App() {
               await openRepo(path);
             }, "Repository cloned")
           }
+        />
+      )}
+
+      {picker && (
+        <FolderPicker
+          title={picker.title}
+          start={picker.start}
+          onDone={(path) => {
+            picker.resolve(path);
+            setPicker(null);
+          }}
         />
       )}
     </div>
@@ -649,12 +682,17 @@ function BranchMenu(props: {
   );
 }
 
-function CloneDialog(props: { onClose: () => void; onClone: (url: string, parent: string) => void; busy: boolean }) {
+function CloneDialog(props: {
+  onClose: () => void;
+  onClone: (url: string, parent: string) => void;
+  pickFolder: (title: string) => Promise<string | null>;
+  busy: boolean;
+}) {
   const [url, setUrl] = useState("");
   const [parent, setParent] = useState("");
   const pick = async () => {
-    const dir = await openDialog({ directory: true, title: "Clone into…" });
-    if (typeof dir === "string") setParent(dir);
+    const dir = await props.pickFolder("Clone into…");
+    if (dir) setParent(dir);
   };
   return (
     <div className="modal-bg" onClick={props.onClose}>
