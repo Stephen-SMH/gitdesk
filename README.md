@@ -36,6 +36,22 @@ Everything works the same as on the desktop, with two small differences. Adding 
 
 **Security:** the server listens on 127.0.0.1 only. Any website you visit can send requests to localhost, so the server answers only its own page. A request must be addressed to its own host and port, which defeats DNS rebinding, and requests from any other origin are refused. There is no login: any program running as you can use it, just as it could run `git` itself.
 
+## The ChayYar family
+
+GitDesk is the desktop client in a family of tools built around [ChayYarHub](https://github.com/Stephen-SMH/chayyarhub) (ခြေရာ, "footprints"), a self-hosted git hub. They relate the way GitHub Desktop relates to GitHub.
+
+| Product | Like | What it does | Status |
+| --- | --- | --- | --- |
+| **ChayYarHub** | GitHub | Hosts repositories: code, history, issues, pull requests, accounts | v0.1, in progress |
+| **GitDesk** (this repository) | GitHub Desktop | Desktop and browser client: changes, commits, history, branches, sync | v0.1, desktop and web |
+| **SitMal** (စစ်မယ်, "will check") | GitHub Actions | Runs a repository's tests on every push and marks commits ✓ or ✗ | Planned |
+| **PyaMal** (ပြမယ်, "will show") | GitHub Pages | Publishes a repository's website at its own address | Planned |
+| **KuMal** (ကူမယ်, "will help") | Copilot | Suggests commit messages and reviews pull requests, using Claude | Planned |
+| **`chayyar` CLI** | GitHub CLI | Pull requests and issues from the terminal | Planned |
+| **ChayYarHub Mobile** | GitHub Mobile | Notifications and pull request review on your phone | Planned |
+
+The names of planned products are working names. GitDesk already works with ChayYarHub as it does with any git server: clone with the repository's URL, then fetch, pull and push. For a push, git asks your credential helper for your ChayYarHub username and password.
+
 ## How it works
 
 ```
@@ -70,7 +86,7 @@ cd src-web && cargo test        # server tests, plus the git layer tests again
 
 - Stage individual hunks and lines, stash, amend
 - Merge, conflict resolution, cherry-pick and revert
-- GitHub sign-in, pull request list and creation
+- Sign-in to ChayYarHub and GitHub, with the pull request list and creation
 - Signed and notarised builds with auto-update
 
 ## License
